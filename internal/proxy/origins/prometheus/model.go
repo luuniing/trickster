@@ -15,11 +15,14 @@ package prometheus
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Comcast/trickster/pkg/sort/times"
 
 	"github.com/Comcast/trickster/internal/timeseries"
+	"github.com/Comcast/trickster/internal/util/log"
 	"github.com/prometheus/common/model"
 )
 
@@ -41,6 +44,7 @@ type MatrixEnvelope struct {
 	Data         MatrixData            `json:"data"`
 	ExtentList   timeseries.ExtentList `json:"extents,omitempty"`
 	StepDuration time.Duration         `json:"step,omitempty"`
+	Warnings     []string              `json:"warnings,omitempty"`
 
 	timestamps map[time.Time]bool // tracks unique timestamps in the matrix data
 	tslist     times.Times
@@ -64,7 +68,14 @@ func (c *Client) MarshalTimeseries(ts timeseries.Timeseries) ([]byte, error) {
 func (c *Client) UnmarshalTimeseries(data []byte) (timeseries.Timeseries, error) {
 	me := &MatrixEnvelope{}
 	err := json.Unmarshal(data, &me)
-	return me, err
+	if err != nil {
+		return me, err
+	}
+	if me.Warnings != nil {
+		log.Error("response body gives warnings", log.Pairs{"warnings": strings.Join(me.Warnings, ",")})
+		return me, fmt.Errorf("response body gives warnings: %s", me.Warnings)
+	}
+	return me, nil
 }
 
 // UnmarshalInstantaneous converts a JSON blob into an Instantaneous Data Point
