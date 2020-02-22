@@ -204,6 +204,9 @@ func (se *SeriesEnvelope) TimestampCount() int {
 	return len(ts)
 }
 
+func (se *SeriesEnvelope) SyncExtentFromSamples() {
+}
+
 // Merge merges the provided Timeseries list into the base Timeseries (in the
 // order provided) and optionally sorts the merged Timeseries.
 func (se *SeriesEnvelope) Merge(sort bool,

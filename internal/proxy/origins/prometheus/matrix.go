@@ -33,6 +33,40 @@ func (me *MatrixEnvelope) SetStep(step time.Duration) {
 	me.StepDuration = step
 }
 
+func (me *MatrixEnvelope) SyncExtentFromSamples() {
+	extents := make([]timeseries.Extent, 0, 1)
+
+	wg := sync.WaitGroup{}
+	mtx := sync.Mutex{}
+	for _, s := range me.Data.Result {
+		wg.Add(1)
+		go func(t *model.SampleStream) {
+			mtx.Lock()
+			extentStart := time.Time{}
+			preVal := time.Time{}
+			for _, sp := range t.Values {
+				curTime := sp.Timestamp.Time()
+				if extentStart.IsZero() {
+					extentStart = curTime
+				}
+				if !preVal.IsZero() && curTime.Sub(preVal) > me.StepDuration {
+					extents = append(extents, timeseries.Extent{Start: extentStart, End: preVal})
+					extentStart = curTime
+				}
+				preVal = curTime
+			}
+			if !extentStart.IsZero() {
+				extents = append(extents, timeseries.Extent{Start: extentStart, End: preVal})
+			}
+			mtx.Unlock()
+			wg.Done()
+		}(s)
+	}
+	wg.Wait()
+	me.SetExtents(extents)
+	me.ExtentList = me.ExtentList.Compress(me.StepDuration)
+}
+
 // Merge merges the provided Timeseries list into the base Timeseries (in the order provided) and optionally sorts the merged Timeseries
 func (me *MatrixEnvelope) Merge(sort bool, collection ...timeseries.Timeseries) {
 	meMetrics := make(map[string]*model.SampleStream)

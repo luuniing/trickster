@@ -32,6 +32,9 @@ func (re *ResultsEnvelope) SetStep(step time.Duration) {
 	re.StepDuration = step
 }
 
+func (re *ResultsEnvelope) SyncExtentFromSamples() {
+}
+
 // Merge merges the provided Timeseries list into the base Timeseries (in the order provided) and optionally sorts the merged Timeseries
 func (re *ResultsEnvelope) Merge(sort bool, collection ...timeseries.Timeseries) {
 

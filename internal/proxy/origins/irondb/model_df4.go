@@ -87,6 +87,9 @@ type metricData struct {
 	data map[int64]interface{}
 }
 
+func (se *DF4SeriesEnvelope) SyncExtentFromSamples() {
+}
+
 // Merge merges the provided Timeseries list into the base Timeseries (in the
 // order provided) and optionally sorts the merged Timeseries.
 func (se *DF4SeriesEnvelope) Merge(sort bool,

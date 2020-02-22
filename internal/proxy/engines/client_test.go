@@ -457,6 +457,9 @@ func (me *MatrixEnvelope) SetStep(step time.Duration) {
 	me.StepDuration = step
 }
 
+func (me *MatrixEnvelope) SyncExtentFromSamples() {
+}
+
 // Merge merges the provided Timeseries list into the base Timeseries (in the order provided) and optionally sorts the merged Timeseries
 func (me *MatrixEnvelope) Merge(sort bool, collection ...timeseries.Timeseries) {
 	meMetrics := make(map[string]*model.SampleStream)

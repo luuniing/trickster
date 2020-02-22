@@ -116,6 +116,9 @@ func (t tags) String() string {
 	return pairs
 }
 
+func (se *SeriesEnvelope) SyncExtentFromSamples() {
+}
+
 // Merge merges the provided Timeseries list into the base Timeseries (in the order provided) and optionally sorts the merged Timeseries
 func (se *SeriesEnvelope) Merge(sort bool, collection ...timeseries.Timeseries) {
 

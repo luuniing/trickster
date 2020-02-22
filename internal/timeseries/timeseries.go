@@ -29,6 +29,8 @@ type Timeseries interface {
 	Step() time.Duration
 	// SetStep should update the Step Interval of the Timeseries
 	SetStep(time.Duration)
+	// Set the real extent
+	SyncExtentFromSamples()
 	// Merge should merge the Timeseries collection into the source Timeseries
 	Merge(bool, ...Timeseries)
 	// Sort should uniqueify and sort all series by Timestamp

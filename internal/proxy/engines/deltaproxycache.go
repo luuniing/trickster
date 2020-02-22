@@ -126,6 +126,8 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 		doc, cacheStatus, _, err = QueryCache(ctx, cache, key, nil)
 		if cacheStatus == status.LookupStatusKeyMiss && err == tc.ErrKNF {
 			cts, doc, elapsed, err = fetchTimeseries(pr, trq, client)
+			log.Info("cts extent ", log.Pairs{"start": cts.Extents()[0].Start, "end": cts.Extents()[0].End})
+
 			if err != nil {
 				recordDPCResult(r, status.LookupStatusProxyError, doc.StatusCode, r.URL.Path, "", elapsed.Seconds(), nil, doc.Headers)
 
@@ -221,6 +223,7 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 	wg := sync.WaitGroup{}
 	appendLock := sync.Mutex{}
 	uncachedValueCount := 0
+	log.Info("cts extent ", log.Pairs{"start": cts.Extents()[0].Start, "end": cts.Extents()[0].End})
 
 	// iterate each time range that the client needs and fetch from the upstream origin
 	for i := range missRanges {
@@ -388,6 +391,8 @@ func fetchTimeseries(pr *proxyRequest, trq *timeseries.TimeRangeQuery, client or
 
 	ts.SetExtents([]timeseries.Extent{trq.Extent})
 	ts.SetStep(trq.Step)
+
+	ts.SyncExtentFromSamples()
 
 	return ts, d, elapsed, nil
 }
