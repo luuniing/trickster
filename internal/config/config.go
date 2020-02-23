@@ -147,6 +147,8 @@ type OriginConfig struct {
 	FastForwardTTLSecs int `toml:"fastforward_ttl_secs"`
 	// MaxTTLSecs specifies the maximum allowed TTL for any cache object
 	MaxTTLSecs int `toml:"max_ttl_secs"`
+	// missing_tolerance_ratio defines value missing tolerance before it re-fetch missing values to fulfil the query
+	MissingToleranceRatio float64 `toml:"missing_tolerance_ratio"`
 	// RevalidationFactor specifies how many times to multiply the object freshness lifetime by to calculate an absolute cache TTL
 	RevalidationFactor float64 `toml:"revalidation_factor"`
 	// MaxObjectSizeBytes specifies the max objectsize to be accepted for any given cache object
@@ -455,6 +457,7 @@ func NewOriginConfig() *OriginConfig {
 		TimeseriesRetentionFactor:    defaultOriginTRF,
 		TimeseriesTTL:                defaultTimeseriesTTLSecs * time.Second,
 		TimeseriesTTLSecs:            defaultTimeseriesTTLSecs,
+		MissingToleranceRatio:        defaultMissingToleranceRatio,
 		TracingConfigName:            defaultTracingConfigName,
 		TracingConfig:                NewTracingConfig(),
 	}

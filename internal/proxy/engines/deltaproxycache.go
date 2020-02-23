@@ -217,10 +217,13 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 	if len(missRanges) > 0 {
 		dpStatus["extentsFetched"] = timeseries.ExtentList(missRanges).String()
 		// If miss range more than two, just re-fetch everything
-		log.Debug("Miss range ratio", log.Pairs{"missRange Duration": missRanges.TotalDuration(trq.Step).Seconds(), "total extent duration": (trq.Extent.End.Sub(trq.Extent.Start)).Seconds()})
+		missingRangeSec := missRanges.TotalDuration(trq.Step).Seconds()
+		trqRangeSec := (trq.Extent.End.Sub(trq.Extent.Start)).Seconds()
+		log.Debug("Miss range ratio", log.Pairs{"missRange Duration": missingRangeSec,
+			"total extent duration": trqRangeSec, "ratio": missingRangeSec / trqRangeSec})
 		if len(missRanges) > 2 {
 			fetchRanges = timeseries.ExtentList{trq.Extent}
-		} else if missRanges.TotalDuration(trq.Step).Seconds()/(trq.Extent.End.Sub(trq.Extent.Start)).Seconds() > 0.25 {
+		} else if missingRangeSec/trqRangeSec > oc.MissingToleranceRatio {
 			fetchRanges = missRanges.Clone()
 		}
 	}

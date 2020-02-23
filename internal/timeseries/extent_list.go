@@ -145,7 +145,12 @@ func (el ExtentList) TotalDuration(step time.Duration) (duration time.Duration) 
 	elNew := el.Clone()
 	elNew.Compress(step)
 	for _, e := range elNew {
-		duration += e.End.Sub(e.Start)
+		diff := e.End.Sub(e.Start)
+		if diff == 0 {
+			duration += step
+		} else {
+			duration += e.End.Sub(e.Start)
+		}
 	}
 	return duration
 }

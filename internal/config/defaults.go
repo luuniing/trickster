@@ -29,10 +29,11 @@ const (
 	defaultCacheType   = "memory"
 	defaultCacheTypeID = CacheTypeMemory
 
-	defaultTimeseriesTTLSecs  = 21600
-	defaultFastForwardTTLSecs = 15
-	defaultMaxTTLSecs         = 86400
-	defaultRevalidationFactor = 2
+	defaultTimeseriesTTLSecs     = 21600 * 4 * 30
+	defaultFastForwardTTLSecs    = 15
+	defaultMaxTTLSecs            = 86400
+	defaultMissingToleranceRatio = 0.05
+	defaultRevalidationFactor    = 2
 
 	defaultCachePath = "/tmp/trickster"
 
