@@ -82,10 +82,6 @@ func (trq *TimeRangeQuery) CalculateDeltas(have ExtentList) ExtentList {
 	for i := trq.Extent.Start; !trq.Extent.End.Before(i); i = i.Add(trq.Step) {
 		found := false
 		for j := range have {
-			if j == 0 && i.Before(have[j].Start) {
-				// our earliest datapoint in cache is after the first point the user wants
-				break
-			}
 			if i.Equal(have[j].Start) || i.Equal(have[j].End) || (i.After(have[j].Start) && have[j].End.After(i)) {
 				found = true
 				break

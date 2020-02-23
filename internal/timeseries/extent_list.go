@@ -140,6 +140,16 @@ func (el ExtentList) Len() int {
 	return len(el)
 }
 
+func (el ExtentList) TotalDuration(step time.Duration) (duration time.Duration) {
+	duration = 0
+	elNew := el.Clone()
+	elNew.Compress(step)
+	for _, e := range elNew {
+		duration += e.End.Sub(e.Start)
+	}
+	return duration
+}
+
 // Less returns true if element i in the ExtentList comes before j
 func (el ExtentList) Less(i, j int) bool {
 	return el[i].Start.Before(el[j].Start)

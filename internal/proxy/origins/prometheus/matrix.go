@@ -14,6 +14,7 @@
 package prometheus
 
 import (
+	"github.com/Comcast/trickster/internal/util/log"
 	"sort"
 	"sync"
 	"time"
@@ -35,36 +36,22 @@ func (me *MatrixEnvelope) SetStep(step time.Duration) {
 
 func (me *MatrixEnvelope) SyncExtentFromSamples() {
 	extents := make([]timeseries.Extent, 0, 1)
-
-	wg := sync.WaitGroup{}
-	mtx := sync.Mutex{}
-	for _, s := range me.Data.Result {
-		wg.Add(1)
-		go func(t *model.SampleStream) {
-			mtx.Lock()
-			extentStart := time.Time{}
-			preVal := time.Time{}
-			for _, sp := range t.Values {
-				curTime := sp.Timestamp.Time()
-				if extentStart.IsZero() {
-					extentStart = curTime
-				}
-				if !preVal.IsZero() && curTime.Sub(preVal) > me.StepDuration {
-					extents = append(extents, timeseries.Extent{Start: extentStart, End: preVal})
-					extentStart = curTime
-				}
-				preVal = curTime
+	for _, t := range me.Data.Result {
+		var inStart = time.Time{}
+		l := len(t.Values)
+		for i := range t.Values {
+			if inStart.IsZero() {
+				inStart = t.Values[i].Timestamp.Time()
 			}
-			if !extentStart.IsZero() {
-				extents = append(extents, timeseries.Extent{Start: extentStart, End: preVal})
+			if i+1 == l || !t.Values[i+1].Timestamp.Time().Equal(t.Values[i].Timestamp.Time().Add(me.StepDuration)) {
+				extents = append(extents, timeseries.Extent{Start: inStart, End: t.Values[i].Timestamp.Time()})
+				inStart = time.Time{}
 			}
-			mtx.Unlock()
-			wg.Done()
-		}(s)
+		}
 	}
-	wg.Wait()
 	me.SetExtents(extents)
-	me.ExtentList = me.ExtentList.Compress(me.StepDuration)
+	me.SetExtents(me.ExtentList.Compress(me.StepDuration))
+	log.Debug("extent synced from time series", log.Pairs{"extents": me.Extents().String()})
 }
 
 // Merge merges the provided Timeseries list into the base Timeseries (in the order provided) and optionally sorts the merged Timeseries

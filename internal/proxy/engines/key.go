@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ import (
 )
 
 var methodsWithBody = map[string]bool{http.MethodPut: true, http.MethodPost: true, http.MethodPatch: true}
+var specialCharMatcher, _ = regexp.Compile("[^a-zA-Z0-9]+")
 
 // DeriveCacheKey calculates a query-specific keyname based on the prometheus query in the user request
 func (pr *proxyRequest) DeriveCacheKey(templateURL *url.URL, extra string) string {
@@ -126,7 +128,11 @@ func (pr *proxyRequest) DeriveCacheKey(templateURL *url.URL, extra string) strin
 	}
 
 	sort.Strings(vals)
-	return md5.Checksum(pr.URL.Path + "." + strings.Join(vals, "") + extra)
+	valsStr := specialCharMatcher.ReplaceAllString(strings.Join(vals, ""), "")
+	if len(valsStr) < 200 {
+		return pr.URL.Path + "." + valsStr + extra
+	}
+	return md5.Checksum(pr.URL.Path + "." + valsStr + extra)
 }
 
 func deepSearch(document map[string]interface{}, key string) (string, error) {

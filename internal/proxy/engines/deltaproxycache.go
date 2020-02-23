@@ -158,6 +158,8 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 					return // fetchTimeseries logs the error
 				}
 			} else {
+				// Make sure extent reflects time series from cache
+				cts.SyncExtentFromSamples()
 				if oc.TimeseriesEvictionMethod == config.EvictionMethodLRU {
 					el := cts.Extents()
 					tsc := cts.TimestampCount()
@@ -184,10 +186,8 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find the ranges that we want, but which are not currently cached
-	var missRanges timeseries.ExtentList
-	if cacheStatus == status.LookupStatusPartialHit {
-		missRanges = trq.CalculateDeltas(cts.Extents())
-	}
+	missRanges := trq.CalculateDeltas(cts.Extents())
+	log.Debug("Miss range", log.Pairs{"missRange": missRanges.String()})
 
 	if len(missRanges) == 0 && cacheStatus == status.LookupStatusPartialHit {
 		// on full cache hit, elapsed records the time taken to query the cache and definitively conclude that it is a full cache hit
@@ -212,27 +212,36 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 			trq.FastForwardDisable = true
 		}
 	}
-
+	fetchRanges := timeseries.ExtentList{}
 	dpStatus := log.Pairs{"cacheKey": key, "cacheStatus": cacheStatus, "reqStart": trq.Extent.Start.Unix(), "reqEnd": trq.Extent.End.Unix()}
 	if len(missRanges) > 0 {
 		dpStatus["extentsFetched"] = timeseries.ExtentList(missRanges).String()
+		// If miss range more than two, just re-fetch everything
+		log.Debug("Miss range ratio", log.Pairs{"missRange Duration": missRanges.TotalDuration(trq.Step).Seconds(), "total extent duration": (trq.Extent.End.Sub(trq.Extent.Start)).Seconds()})
+		if len(missRanges) > 2 {
+			fetchRanges = timeseries.ExtentList{trq.Extent}
+		} else if missRanges.TotalDuration(trq.Step).Seconds()/(trq.Extent.End.Sub(trq.Extent.Start)).Seconds() > 0.25 {
+			fetchRanges = missRanges.Clone()
+		}
 	}
+	log.Info("supplementary range to fetch", log.Pairs{"fetchRange": fetchRanges.String()})
 
 	// maintain a list of timeseries to merge into the main timeseries
-	mts := make([]timeseries.Timeseries, 0, len(missRanges))
+	mts := make([]timeseries.Timeseries, 0, len(fetchRanges))
 	wg := sync.WaitGroup{}
 	appendLock := sync.Mutex{}
 	uncachedValueCount := 0
 	log.Info("cts extent ", log.Pairs{"start": cts.Extents()[0].Start, "end": cts.Extents()[0].End})
 
 	// iterate each time range that the client needs and fetch from the upstream origin
-	for i := range missRanges {
+	for i := range fetchRanges {
 		wg.Add(1)
 		// This fetches the gaps from the origin and adds their datasets to the merge list
 		go func(e *timeseries.Extent, rq *proxyRequest) {
 			defer wg.Done()
 			rq.Request = rq.WithContext(tctx.WithResources(r.Context(), request.NewResources(oc, pc, cc, cache, client)))
 			client.SetExtent(rq.Request, trq, e)
+			log.Debug("fetching missed ranges", log.Pairs{"extent": e.String()})
 			body, resp, _ := rq.Fetch()
 			if resp.StatusCode == http.StatusOK && len(body) > 0 {
 				nts, err := client.UnmarshalTimeseries(body)
@@ -243,11 +252,12 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 				uncachedValueCount += nts.ValueCount()
 				nts.SetStep(trq.Step)
 				nts.SetExtents([]timeseries.Extent{*e})
+				nts.SyncExtentFromSamples()
 				appendLock.Lock()
 				mts = append(mts, nts)
 				appendLock.Unlock()
 			}
-		}(&missRanges[i], pr.Clone())
+		}(&fetchRanges[i], pr.Clone())
 	}
 
 	var hasFastForwardData bool
@@ -296,6 +306,7 @@ func DeltaProxyCacheRequest(w http.ResponseWriter, r *http.Request) {
 		// on a partial hit, elapsed should record the amount of time waiting for all upstream requests to complete
 		elapsed = time.Since(now)
 		cts.Merge(true, mts...)
+		cts.SetExtents(cts.Extents().Compress(cts.Step()))
 	}
 
 	// cts is the cacheable time series, rts is the user's response timeseries
